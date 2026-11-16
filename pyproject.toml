@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aethermesh"
+version = "0.1.0"
+description = "Autonomous GitOps & IaC control plane with OPA policy gates, risk scoring, veto heatmaps, and MCP/CLI interfaces."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]
+otel = ["opentelemetry-api>=1.25", "opentelemetry-sdk>=1.25"]
+
+[project.scripts]
+aethermesh = "aethermesh.cli:main"
+aethermesh-mcp = "aethermesh.mcp_server:main"
+
+[tool.setuptools.packages.find]
+include = ["aethermesh*"]

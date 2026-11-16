@@ -1,0 +1,45 @@
+name: AetherMesh S3 Policy & Plan Gate
+
+on:
+  pull_request:
+    paths: ["modules/s3-static-bucket/**", "policies/**", "aethermesh/**"]
+
+jobs:
+  plan-and-gate:
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:3.8
+        ports: ["4566:4566"]
+        env:
+          SERVICES: s3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: opentofu/setup-opentofu@v1
+      - name: Install OPA & AetherMesh
+        run: |
+          curl -sSL -o /usr/local/bin/opa https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static
+          chmod +x /usr/local/bin/opa
+          pip install -e . pytest
+      - name: Wait for LocalStack
+        run: timeout 30 bash -c "until curl -sf http://localhost:4566/_localstack/health >/dev/null; do sleep 1; done"
+      - name: Run Unit Tests & Tofu Plan
+        run: |
+          pytest -v
+          tofu -chdir=examples/s3-localstack init -input=false
+          tofu -chdir=examples/s3-localstack plan -out=tfplan.bin -input=false
+          tofu -chdir=examples/s3-localstack show -json tfplan.bin > tfplan.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aethermesh-gate-artifacts
+          path: |
+            examples/s3-localstack/tfplan.json
+
+# Human Promotion to Apply:
+# 1. Inspect decision.json (`status == "auto_approved"` or `"human_required"`).
+# 2. On merge to `main`, trigger a protected `environment: staging/production` job
+#    with required reviewers that downloads `tfplan.bin` and runs `tofu apply tfplan.bin`.

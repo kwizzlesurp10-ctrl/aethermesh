@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aethermesh-gate
+  namespace: monitoring
+spec:
+  groups:
+    - name: aethermesh.gate
+      rules:
+        - alert: AetherMeshHighVetoRate
+          expr: |
+            sum(rate(aethermesh_critic_veto_total[15m]))
+            /
+            sum(rate(aethermesh_gate_evaluations_total[15m]))
+            > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "AetherMesh Critic veto rate exceeds 5%"
+            description: "More than 5% of gate evaluations are being vetoed. Investigate policy or planner drift."
+
+        - alert: AetherMeshHighRiskScore
+          expr: |
+            histogram_quantile(0.95, sum(rate(aethermesh_risk_score_bucket[15m])) by (le))
+            > 60
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "AetherMesh p95 risk score > 60"
+            description: "Risk scores are elevated. Possible policy bypass attempt or high-blast-radius changes."
